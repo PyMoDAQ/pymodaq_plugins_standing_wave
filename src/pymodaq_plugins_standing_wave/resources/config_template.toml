@@ -1,0 +1,10 @@
+title = 'this is the configuration file of the plugin *standing wave*'
+
+[daqmx]
+    device_ai = 'Dev3'
+    channel_ai = 'ai0'
+    clock_ai_terminal = 'PFI0'
+    clock_rate = 20000
+    trigger_ai_terminal = 'PFI1'
+    trigger_enabled = false
+    trigger_level = 0.5
