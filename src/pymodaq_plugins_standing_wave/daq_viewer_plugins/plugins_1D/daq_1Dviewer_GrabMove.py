@@ -39,24 +39,28 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
         {'title': 'Move to offset:', 'name': 'move_offset', 'type': 'bool_push', 'value': False,
          'label': 'Move to'},
 
-        {'title': 'DAQmx params', 'name': 'daqmx_params', 'type': 'group', 'children': [
+        {'title': 'PI waveform', 'name': 'pi_waveform', 'type': 'group', 'children': [
+
+            ]},
+
+        {'title': 'DAQmx', 'name': 'daqmx_params', 'type': 'group', 'children': [
             {'title': 'AI Channel:', 'name': 'ai_channel', 'type': 'list',
              'values': DAQmx.get_NIDAQ_channels(source_type='Analog_Input'),
              'value': f'{device_ai}/{channel_ai}'},
             {'title': 'Clock Channel:', 'name': 'clock_channel', 'type': 'list',
              'values': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
-             'value': f'{device_ai}/{clock_ai_terminal}'},
+             'value': f'/{device_ai}/{clock_ai_terminal}'},
             {'title': 'Clock rate:', 'name': 'clock_rate', 'type': 'int',
              'value': config('daqmx', 'clock_rate')},
             {'title': 'Trigger Channel:', 'name': 'trigger_channel', 'type': 'list',
              'values': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
-             'value': f'{device_ai}/{trigger_ai_terminal}'},
+             'value': f'/{device_ai}/{trigger_ai_terminal}'},
             {'title': 'Enable Trigger:', 'name': 'trigger_enabled', 'type': 'bool',
              'value': config('daqmx', 'trigger_enabled')},
             {'title': 'Trigger level:', 'name': 'trigger_level', 'type': 'float',
              'value': config('daqmx', 'trigger_level')},
         ]},
-        {'title': 'PI params', 'name': 'pi_params', 'type': 'group', 'children': DAQ_Move_PI.params}
+        {'title': 'PI', 'name': 'pi_params', 'type': 'group', 'children': DAQ_Move_PI.params}
         ]
 
     def ini_attributes(self):
@@ -75,7 +79,7 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
         param: Parameter
             A given parameter (within detector_settings) whose value has been changed by the user
         """
-        ## TODO for your custom plugin
+
         if (param.name() == 'npoints' or param.name() in
                 iter_children(self.settings.child('daqmx_params'), [])):
             self.update_tasks()
@@ -84,7 +88,7 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
             self.controller.pi.commit_settings(param)
         elif param.name() == 'move_offset':
             if param.value():
-                self.controller.pi.move_abs(self.settings['axis_offset'])
+                self.controller.pi.move_abs(DataActuator(data=self.settings['axis_offset']))
                 param.setValue(False)
 
     def update_tasks(self):
@@ -102,7 +106,9 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
             enable=self.settings['daqmx_params', 'trigger_enabled'],
             level=self.settings['daqmx_params', 'trigger_level'])
 
-        self.controller.daqmx.update_task(self.channels_ai, self.clock_settings_ai)
+        self.controller.daqmx.update_task(self.channel_ai,
+                                          clock_settings=self.clock_settings,
+                                          trigger_settings=self.trigger_settings)
 
     def update_axis_position(self, position: DataActuator):
         self.settings.child('axis_offset').setValue(position.value())
@@ -128,7 +134,8 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
 
         if self.settings['controller_status'] == "Master":
             self.controller.pi.ini_stage()
-            self.controller.pi.move_done_signal.connect(self.update_axis_position)
+
+            self.settings.child('pi_params', 'multiaxes', 'axis').setLimits(self.controller.pi.axis_names)
 
         self.update_axis()
 
@@ -167,7 +174,6 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
                                                                 dim='Data1D', labels=['Signal'],
                                                                 axes=[self.x_axis])]))
 
-
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
         self.controller.daqmx.stop()
@@ -175,4 +181,4 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
 
 
 if __name__ == '__main__':
-    main(__file__)
+    main(__file__, init=False)
