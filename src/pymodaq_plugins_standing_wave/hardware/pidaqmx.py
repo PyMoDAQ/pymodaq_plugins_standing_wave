@@ -15,9 +15,9 @@ class PIDAQMx:
         self.channels_ai: List[AIChannel] = None
 
     @property
-    def pi(self):
+    def pi(self) -> DAQ_Move_PI:
         return self._pi
 
     @property
-    def daqmx(self):
+    def daqmx(self) -> DAQmx:
         return self._daqmx

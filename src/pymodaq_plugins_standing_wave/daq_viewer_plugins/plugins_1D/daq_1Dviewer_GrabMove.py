@@ -34,13 +34,15 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
          
     """
     params = comon_parameters+[
-        {'title': 'Npoints:', 'name': 'npoints', 'type': 'int', 'value': 1000},
+        {'title': 'Npoints:', 'name': 'npoints', 'type': 'int', 'value': config('npts')},
         {'title': 'Axis offset position:', 'name': 'axis_offset', 'type': 'float', 'value': 0.},
         {'title': 'Move to offset:', 'name': 'move_offset', 'type': 'bool_push', 'value': False,
          'label': 'Move to'},
 
-        {'title': 'PI waveform', 'name': 'pi_waveform', 'type': 'group', 'children': [
-
+        {'title': 'PI waveform', 'name': 'wf', 'type': 'group', 'children': [
+            {'title': 'Use Waveform:', 'name': 'wf_use', 'type': 'bool', 'value': False},
+            {'title': 'Waveform start:', 'name': 'wf_start', 'type': 'float', 'value': config('waveform', 'start')},
+            {'title': 'Waveform stop:', 'name': 'wf_stop', 'type': 'float', 'value': config('waveform', 'stop')},
             ]},
 
         {'title': 'DAQmx', 'name': 'daqmx_params', 'type': 'group', 'children': [
@@ -84,12 +86,23 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
                 iter_children(self.settings.child('daqmx_params'), [])):
             self.update_tasks()
             self.update_axis()
-        elif param.name() in iter_children(self.settings.child('pi_params'), []):
+        if param.name() in iter_children(self.settings.child('pi_params'), []):
             self.controller.pi.commit_settings(param)
         elif param.name() == 'move_offset':
             if param.value():
                 self.controller.pi.move_abs(DataActuator(data=self.settings['axis_offset']))
                 param.setValue(False)
+        if ((param.name() in iter_children(self.settings.child('wf'), []) or param.name() == 'npoints') and
+                self.settings['wf', 'wf_use']):
+            self.prepare_waveform()
+
+    def prepare_waveform(self):
+        amplitude = self.settings['wf', 'wf_stop'] - self.settings['wf', 'wf_start']
+        offset = self.settings['wf', 'wf_start']
+        self.controller.pi.controller.set_1D_waveform(amplitude, offset, npts=self.settings['npoints'],
+                                                      axis=int(self.controller.pi.axis_name))
+        self.controller.pi.controller.set_trigger_waveform([1], do=1)
+        self.settings.child('daqmx_params', 'trigger_enabled').setValue(True)
 
     def update_tasks(self):
 
@@ -138,6 +151,7 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
             self.settings.child('pi_params', 'multiaxes', 'axis').setLimits(self.controller.pi.axis_names)
 
         self.update_axis()
+        self.update_tasks()
 
         info = "GrabMove detector is initialized"
         initialized = True
@@ -164,8 +178,10 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
         kwargs: dict
             others optionals arguments
         """
-        while not self.controller.daqmx.isTaskDone():
-            self.controller.daqmx.stop()
+        self.controller.daqmx.start()
+
+        if self.settings['wf', 'wf_use']:
+            self.controller.pi.controller.start_waveform(int(self.controller.pi.axis_name), cycles=1)
 
         data_array = self.controller.daqmx.readAnalog(1, self.clock_settings)
 
@@ -173,6 +189,7 @@ class DAQ_1DViewer_GrabMove(DAQ_Viewer_base):
                                           data=[DataFromPlugins(name='GrabMove', data=[data_array],
                                                                 dim='Data1D', labels=['Signal'],
                                                                 axes=[self.x_axis])]))
+        self.controller.daqmx.stop()
 
     def stop(self):
         """Stop the current grab hardware wise if necessary"""
