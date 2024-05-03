@@ -6,7 +6,7 @@ from pymodaq.utils.data import DataFromPlugins, Axis, DataToExport, DataActuator
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters, main
 from pymodaq.utils.parameter import Parameter
 from pymodaq.utils.parameter.utils import iter_children
-from pymodaq.utils.math_utils import linspace_step_N
+from pymodaq.utils.math_utils import linspace_step_N, linspace_step
 from pymodaq_plugins_standing_wave.hardware.pidaqmx import PIDAQMx, DAQ_Move_PI
 from pymodaq_plugins_daqmx.hardware.national_instruments.daqmx import (DAQmx, AIChannel,
                                                                        ClockSettings,
@@ -34,13 +34,14 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
          
     """
     params = comon_parameters+[
-        {'title': 'Npoints:', 'name': 'npoints', 'type': 'int', 'value': config('npts')},
+        {'title': 'Npoints:', 'name': 'npoints', 'type': 'int', 'value': config('npts'), 'min': 2},
         {'title': 'Axis offset position:', 'name': 'axis_offset', 'type': 'float', 'value': 0.},
         {'title': 'Move to offset:', 'name': 'move_offset', 'type': 'bool_push', 'value': False,
          'label': 'Move to'},
 
         {'title': 'PI waveform', 'name': 'wf', 'type': 'group', 'children': [
             {'title': 'Use Waveform:', 'name': 'wf_use', 'type': 'bool', 'value': False},
+            {'title': 'Rate:', 'name': 'rate', 'type': 'int', 'value': config('waveform', 'rate'), 'min': 1},
             {'title': 'Waveform start:', 'name': 'wf_start', 'type': 'float', 'value': config('waveform', 'start')},
             {'title': 'Waveform stop:', 'name': 'wf_stop', 'type': 'float', 'value': config('waveform', 'stop')},
             ]},
@@ -82,7 +83,7 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
             A given parameter (within detector_settings) whose value has been changed by the user
         """
 
-        if (param.name() == 'npoints' or param.name() in
+        if (param.name() == 'npoints' or param.name() == 'rate' or param.name() in
                 iter_children(self.settings.child('daqmx_params'), [])):
             self.update_tasks()
             self.update_axis()
@@ -100,19 +101,19 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
         amplitude = self.settings['wf', 'wf_stop'] - self.settings['wf', 'wf_start']
         offset = self.settings['wf', 'wf_start']
         self.controller.pi.controller.set_1D_waveform(amplitude, offset, npts=self.settings['npoints'],
-                                                      axis=int(self.controller.pi.axis_name))
+                                                      axis=int(self.controller.pi.axis_name),
+                                                      rate=self.settings['wf', 'rate'])
         self.controller.pi.controller.set_trigger_waveform([1], do=1)
         self.settings.child('daqmx_params', 'trigger_enabled').setValue(True)
 
     def update_tasks(self):
-
         self.channel_ai = AIChannel(name=self.settings['daqmx_params', 'ai_channel'],
                                       source='Analog_Input', analog_type='Voltage',
                                       value_min=-10., value_max=10., termination='Diff', ),
 
         self.clock_settings = ClockSettings(source=self.settings['daqmx_params', 'clock_channel'],
                                             frequency=self.settings['daqmx_params', 'clock_rate'],
-                                            Nsamples=self.settings['npoints'],)
+                                            Nsamples=self.settings['npoints'] * self.settings['wf', 'rate'],)
 
         self.trigger_settings = TriggerSettings(
             trig_source=self.settings['daqmx_params', 'trigger_channel'],
@@ -158,9 +159,15 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
         return info, initialized
 
     def update_axis(self):
-        self.x_axis = Axis('time', 's',
-                           data=linspace_step_N(0, 1 / self.settings['daqmx_params', 'clock_rate'],
-                                                self.settings['npoints']))
+        if not self.settings['wf', 'wf_use']:
+            self.x_axis = Axis('time', 's', data=
+            linspace_step_N(0, 1 / self.settings['daqmx_params', 'clock_rate'] * self.settings['wf', 'rate'],
+                            self.settings['npoints']))
+        else:
+            self.x_axis = Axis('X position', 'm', data=
+                np.linspace(self.settings['wf', 'wf_start'],
+                            self.settings['wf', 'wf_stop'],
+                            self.settings['npoints']))
 
     def close(self):
         """Terminate the communication protocol"""
@@ -184,6 +191,7 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
             self.controller.pi.controller.start_waveform(int(self.controller.pi.axis_name), cycles=1)
 
         data_array = self.controller.daqmx.readAnalog(1, self.clock_settings)
+        data_array = data_array[::self.settings['wf', 'rate']]
 
         self.dte_signal.emit(DataToExport('myplugin',
                                           data=[DataFromPlugins(name='GrabMove', data=[data_array],

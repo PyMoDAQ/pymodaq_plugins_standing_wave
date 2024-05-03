@@ -1,10 +1,11 @@
 title = 'this is the configuration file of the plugin *standing wave*'
 
-npts = 1000
+npts = 200
 
 [waveform]
     start = 20.0
     stop = 30.0
+    rate= 200
 
 [daqmx]
     device_ai = 'Dev3'
