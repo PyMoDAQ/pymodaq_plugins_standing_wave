@@ -41,6 +41,7 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
 
         {'title': 'PI waveform', 'name': 'wf', 'type': 'group', 'children': [
             {'title': 'Use Waveform:', 'name': 'wf_use', 'type': 'bool', 'value': False},
+            {'title': 'Axis:', 'name': 'wf_axis', 'type': 'list', 'value': 1, 'limits': {'1': 1, '2': 2, '3': 3}},
             {'title': 'Rate:', 'name': 'rate', 'type': 'int', 'value': config('waveform', 'rate'), 'min': 1},
             {'title': 'Waveform start:', 'name': 'wf_start', 'type': 'float', 'value': config('waveform', 'start')},
             {'title': 'Waveform stop:', 'name': 'wf_stop', 'type': 'float', 'value': config('waveform', 'stop')},
@@ -101,7 +102,7 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
         amplitude = self.settings['wf', 'wf_stop'] - self.settings['wf', 'wf_start']
         offset = self.settings['wf', 'wf_start']
         self.controller.pi.controller.set_1D_waveform(amplitude, offset, npts=self.settings['npoints'],
-                                                      axis=int(self.controller.pi.axis_name),
+                                                      axis=self.settings['wf', 'wf_axis'],
                                                       rate=self.settings['wf', 'rate'])
         self.controller.pi.controller.set_trigger_waveform([1], do=1)
         self.settings.child('daqmx_params', 'trigger_enabled').setValue(True)
@@ -188,7 +189,7 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
         self.controller.daqmx.start()
 
         if self.settings['wf', 'wf_use']:
-            self.controller.pi.controller.start_waveform(int(self.controller.pi.axis_name), cycles=1)
+            self.controller.pi.controller.start_waveform(self.settings['wf', 'wf_axis'], cycles=1)
 
         data_array = self.controller.daqmx.readAnalog(1, self.clock_settings)
         data_array = data_array[::self.settings['wf', 'rate']]
