@@ -42,7 +42,13 @@ class DAQ_Move_SW_PI(DAQ_Move_PI):
             if isinstance(controller, PIDAQMx):
                 controller = controller.pi.controller
 
-        return super().ini_stage(controller)
+        info, initialized = super().ini_stage(controller)
+
+        self.axis_units = ['µm', 'µm', 'µm']
+        self.epsilons = [self.epsilon for _ in range(len(self.axis_units))]
+        self.axis_unit = self.axis_units[self.axis_index_key]
+
+        return info, initialized
 
 
 if __name__ == '__main__':
