@@ -44,8 +44,8 @@ class DAQ_Move_SW_PI(DAQ_Move_PI):
 
         info, initialized = super().ini_stage(controller)
 
-        self.axis_units = ['µm', 'µm', 'µm']
-        self.epsilons = [self.epsilon for _ in range(len(self.axis_units))]
+        self.axis_units = 'µm'  # defines the same unit for all axes
+        self.epsilons = self.epsilon  # defines the same epsilon for all axes
         self.axis_unit = self.axis_units[self.axis_index_key]
 
         return info, initialized
