@@ -49,15 +49,15 @@ class DAQ_1DViewer_SW_GrabMove(DAQ_Viewer_base):
 
         {'title': 'DAQmx', 'name': 'daqmx_params', 'type': 'group', 'children': [
             {'title': 'AI Channel:', 'name': 'ai_channel', 'type': 'list',
-             'values': DAQmx.get_NIDAQ_channels(source_type='Analog_Input'),
+             'limits': DAQmx.get_NIDAQ_channels(source_type='Analog_Input'),
              'value': f'{device_ai}/{channel_ai}'},
             {'title': 'Clock Channel:', 'name': 'clock_channel', 'type': 'list',
-             'values': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
+             'limits': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
              'value': f'/{device_ai}/{clock_ai_terminal}'},
             {'title': 'Clock rate:', 'name': 'clock_rate', 'type': 'int',
              'value': config('daqmx', 'clock_rate')},
             {'title': 'Trigger Channel:', 'name': 'trigger_channel', 'type': 'list',
-             'values': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
+             'limits': DAQmx.get_NIDAQ_channels(source_type='Terminals'),
              'value': f'/{device_ai}/{trigger_ai_terminal}'},
             {'title': 'Enable Trigger:', 'name': 'trigger_enabled', 'type': 'bool',
              'value': config('daqmx', 'trigger_enabled')},
